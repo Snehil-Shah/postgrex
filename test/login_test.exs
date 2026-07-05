@@ -88,6 +88,78 @@ defmodule LoginTest do
     assert {:ok, %Postgrex.Result{}} = P.query(pid, "SELECT 123", [])
   end
 
+  @tag :ssl
+  @tag min_pg_version: "11.0"
+  test "login scram password with channel binding required", context do
+    opts = [
+      username: "postgrex_scram_pw",
+      password: "postgrex_scram_pw",
+      ssl: [verify: :verify_none],
+      channel_binding: :require
+    ]
+
+    assert {:ok, pid} = P.start_link(opts ++ context[:options])
+    assert {:ok, %Postgrex.Result{}} = P.query(pid, "SELECT 123", [])
+  end
+
+  @tag min_pg_version: "10.0"
+  test "login scram password with channel binding required without SSL", context do
+    assert capture_log(fn ->
+             opts = [
+               username: "postgrex_scram_pw",
+               password: "postgrex_scram_pw",
+               channel_binding: :require
+             ]
+
+             assert_start_and_killed(opts ++ context[:options])
+           end) =~ "channel binding is required"
+  end
+
+  @tag :ssl
+  @tag min_pg_version: "11.0"
+  test "login scram password with channel binding preferred", context do
+    opts = [
+      username: "postgrex_scram_pw",
+      password: "postgrex_scram_pw",
+      ssl: [verify: :verify_none],
+      channel_binding: :prefer
+    ]
+
+    assert {:ok, pid} = P.start_link(opts ++ context[:options])
+    assert {:ok, %Postgrex.Result{}} = P.query(pid, "SELECT 123", [])
+  end
+
+  @tag :ssl
+  @tag min_pg_version: "11.0"
+  test "login scram password with channel binding disabled", context do
+    opts = [
+      username: "postgrex_scram_pw",
+      password: "postgrex_scram_pw",
+      ssl: [verify: :verify_none],
+      channel_binding: :disable
+    ]
+
+    assert {:ok, pid} = P.start_link(opts ++ context[:options])
+    assert {:ok, %Postgrex.Result{}} = P.query(pid, "SELECT 123", [])
+  end
+
+  # gen_statem reports (raised in connect/2) are only captured on Elixir v1.17+,
+  # and a bug crashes the Logger on v1.17.0/v1.17.1.
+  if Version.match?(System.version(), ">= 1.17.2") do
+    test "invalid channel_binding option", context do
+      Process.flag(:trap_exit, true)
+      opts = [channel_binding: :invalid, show_sensitive_data_on_connection_error: true]
+
+      error_log =
+        capture_log(fn ->
+          Postgrex.start_link(opts ++ context[:options])
+          assert_receive {:EXIT, _, :killed}
+        end)
+
+      assert error_log =~ "expected :channel_binding to be :prefer, :require or :disable"
+    end
+  end
+
   test "env var defaults", context do
     assert {:ok, pid} = P.start_link(context[:options])
     assert {:ok, %Postgrex.Result{}} = P.query(pid, "SELECT 123", [])

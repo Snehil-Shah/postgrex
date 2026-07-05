@@ -48,6 +48,7 @@ defmodule Postgrex do
           | {:handshake_timeout, timeout}
           | {:ping_timeout, timeout}
           | {:ssl, boolean | [:ssl.tls_client_option()]}
+          | {:channel_binding, :prefer | :require | :disable}
           | {:socket_options, [:gen_tcp.connect_option()]}
           | {:prepare, :named | :unnamed}
           | {:transactions, :strict | :naive}
@@ -123,6 +124,12 @@ defmodule Postgrex do
        - false (default): no SSL.
        - true: enable SSL with secure defaults, including peer certificate verification and hostname checking.
        - keyword list of `t::ssl.tls_client_option()/0` values: enable SSL and merge your options on top of secure defaults.
+
+    * `:channel_binding` - Controls the use of SCRAM channel binding (`SCRAM-SHA-256-PLUS`).
+      Only applies to SSL connections against servers using SCRAM authentication. Set to:
+       - `:prefer` (default): use channel binding when the server supports it.
+       - `:require`: refuse to connect unless channel binding is used.
+       - `:disable`: never use channel binding.
 
     * `:socket_options` - Options to be given to the underlying socket
       (applies to both TCP and UNIX sockets);
