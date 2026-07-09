@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.23.0-dev
+
+* Enhancements
+  * Add SCRAM-SHA-256-PLUS support
+
+* Bug fixes
+  * Do not set `num_rows` to non-nil atom
+  * Use reports for logging errors
+  * Fix composite type loading when `record_send` is duplicated
+  * Fix encoding of domains over composite types
+  * Enforce integer bounds in type encoders
+
 ## v0.22.3 (2026-07-09)
 
 * Security
