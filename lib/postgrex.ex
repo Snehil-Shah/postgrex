@@ -64,6 +64,12 @@ defmodule Postgrex do
           {:decode_mapper, (list -> term)}
           | option
 
+  @type query_option ::
+          {:cache_statement, String.t()}
+          | {:query_type, :binary | :text}
+          | {:comment, String.t()}
+          | execute_option
+
   @max_rows 500
   @timeout 15_000
 
@@ -288,6 +294,9 @@ defmodule Postgrex do
     * `:query_type` - Either `:binary` or `:text`. If `:binary` then the
       extended query protocol is used. If `:text` then the simple protocol
       is used. Defaults to `:binary`.
+    * `:comment` - When a binary string is provided, appends the given text to the
+      query wrapped in a `/* ... */` SQL comment. The comment cannot contain null
+      bytes or the sequence `*/`. Note it is not supported with `:cache_statement`.
 
   ## Examples
 
@@ -303,7 +312,7 @@ defmodule Postgrex do
 
       Postgrex.query(conn, "COPY posts TO STDOUT", [])
   """
-  @spec query(conn, iodata, list, [execute_option]) ::
+  @spec query(conn, iodata, list, [query_option]) ::
           {:ok, Postgrex.Result.t()} | {:error, Exception.t()}
   def query(conn, statement, params \\ [], opts \\ []) when is_list(params) and is_list(opts) do
     query_type = Keyword.get(opts, :query_type, :binary)
@@ -381,7 +390,7 @@ defmodule Postgrex do
   Runs an (extended) query and returns the result or raises `Postgrex.Error` if
   there was an error. See `query/3`.
   """
-  @spec query!(conn, iodata, list, [execute_option]) :: Postgrex.Result.t()
+  @spec query!(conn, iodata, list, [query_option]) :: Postgrex.Result.t()
   def query!(conn, statement, params \\ [], opts \\ []) when is_list(params) and is_list(opts) do
     case query(conn, statement, params, opts) do
       {:ok, result} -> result
@@ -412,12 +421,15 @@ defmodule Postgrex do
     * `:timeout` - Prepare request timeout (default: `#{@timeout}`);
     * `:mode` - set to `:savepoint` to use a savepoint to rollback to before the
     prepare on error, otherwise set to `:transaction` (default: `:transaction`);
+    * `:comment` - When a binary string is provided, appends the given text to the
+      query wrapped in a `/* ... */` SQL comment. The comment cannot contain null
+      bytes or the sequence `*/`.
 
   ## Examples
 
       Postgrex.prepare(conn, "", "CREATE TABLE posts (id serial, title text)")
   """
-  @spec prepare(conn, iodata, iodata, [option]) ::
+  @spec prepare(conn, iodata, iodata, [option | {:comment, String.t()}]) ::
           {:ok, Postgrex.Query.t()} | {:error, Exception.t()}
   def prepare(conn, name, statement, opts \\ []) do
     query = %Query{name: name, statement: statement}
@@ -429,7 +441,7 @@ defmodule Postgrex do
   Prepares an (extended) query and returns the prepared query or raises
   `Postgrex.Error` if there was an error. See `prepare/4`.
   """
-  @spec prepare!(conn, iodata, iodata, [option]) :: Postgrex.Query.t()
+  @spec prepare!(conn, iodata, iodata, [option | {:comment, String.t()}]) :: Postgrex.Query.t()
   def prepare!(conn, name, statement, opts \\ []) do
     opts = Keyword.put(opts, :postgrex_prepare, comment_not_present!(opts))
     DBConnection.prepare!(conn, %Query{name: name, statement: statement}, opts)
@@ -459,13 +471,16 @@ defmodule Postgrex do
     decoding, (default: `fn x -> x end`);
     * `:mode` - set to `:savepoint` to use a savepoint to rollback to before the
     execute on error, otherwise set to `:transaction` (default: `:transaction`);
+    * `:comment` - When a binary string is provided, appends the given text to the
+      query wrapped in a `/* ... */` SQL comment. The comment cannot contain null
+      bytes or the sequence `*/`.
 
   ## Examples
 
       Postgrex.prepare_execute(conn, "", "SELECT id FROM posts WHERE title like $1", ["%my%"])
 
   """
-  @spec prepare_execute(conn, iodata, iodata, list, [execute_option]) ::
+  @spec prepare_execute(conn, iodata, iodata, list, [execute_option | {:comment, String.t()}]) ::
           {:ok, Postgrex.Query.t(), Postgrex.Result.t()} | {:error, Postgrex.Error.t()}
   def prepare_execute(conn, name, statement, params, opts \\ []) when is_list(params) do
     query = %Query{name: name, statement: statement}
@@ -477,7 +492,7 @@ defmodule Postgrex do
   Prepares and runs a query and returns the result or raises
   `Postgrex.Error` if there was an error. See `prepare_execute/5`.
   """
-  @spec prepare_execute!(conn, iodata, iodata, list, [execute_option]) ::
+  @spec prepare_execute!(conn, iodata, iodata, list, [execute_option | {:comment, String.t()}]) ::
           {Postgrex.Query.t(), Postgrex.Result.t()}
   def prepare_execute!(conn, name, statement, params, opts \\ []) when is_list(params) do
     query = %Query{name: name, statement: statement}
